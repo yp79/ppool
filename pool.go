@@ -56,15 +56,14 @@ func WithSigTermRelay() opt {
 // Run starts a new process.
 func (pp *ProcessPool) Run(path string, args []string, env []string, backoff Backoff) (*Process, error) {
 	if backoff == nil && pp.defaultBackoff != nil {
-		backoff = make(Backoff, len(pp.defaultBackoff))
-		copy(backoff, pp.defaultBackoff)
+		backoff = pp.defaultBackoff
 	}
 	proc := &Process{
 		path:    path,
 		args:    args,
 		env:     env,
 		pp:      pp,
-		backoff: &backoff,
+		backoff: backoff,
 		stdout:  &bytes.Buffer{},
 		stderr:  &bytes.Buffer{},
 	}

@@ -16,7 +16,7 @@ import (
 
 func TestRun(t *testing.T) {
 	pp := ppool.New(
-		ppool.WithDefaultBackoff(ppool.Backoff{
+		ppool.WithDefaultBackoff(&ppool.BackoffSimple{
 			100 * time.Millisecond,
 			200 * time.Millisecond,
 			500 * time.Millisecond,
@@ -60,7 +60,7 @@ func TestRun(t *testing.T) {
 
 func TestProcessStop(t *testing.T) {
 	pp := ppool.New(
-		ppool.WithDefaultBackoff(ppool.Backoff{
+		ppool.WithDefaultBackoff(&ppool.BackoffSimple{
 			100 * time.Millisecond,
 			-1,
 		}),
@@ -70,7 +70,7 @@ func TestProcessStop(t *testing.T) {
 		os.Args[0],
 		[]string{"-v", "-test.run=TestHelperProcess", "--", "p1", "1"},
 		[]string{"TEST_HELPER_PROCESS=1"},
-		ppool.Backoff{
+		&ppool.BackoffSimple{
 			100 * time.Millisecond,
 			200 * time.Millisecond,
 			500 * time.Millisecond,
@@ -93,7 +93,7 @@ func TestProcessStop(t *testing.T) {
 func TestSigTermRelay(t *testing.T) {
 	pp := ppool.New(
 		ppool.WithSigTermRelay(),
-		ppool.WithDefaultBackoff(ppool.Backoff{
+		ppool.WithDefaultBackoff(&ppool.BackoffSimple{
 			100 * time.Millisecond,
 			200 * time.Millisecond,
 			500 * time.Millisecond,

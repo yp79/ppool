@@ -16,7 +16,7 @@ type Process struct {
 	env     []string
 	stdout  *bytes.Buffer
 	stderr  *bytes.Buffer
-	backoff *Backoff
+	backoff Backoff
 	pp      *ProcessPool
 	cmd     *exec.Cmd
 	stopped bool
