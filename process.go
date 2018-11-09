@@ -30,7 +30,6 @@ func (p *Process) Pid() int {
 
 func (p *Process) Stop() error {
 	p.stopped = true
-	p.pp.deleteProcess(p.Pid())
 	return p.kill()
 }
 
@@ -46,7 +45,6 @@ func (p *Process) start() error {
 		return nil
 	}
 
-	//fmt.Println("starting")
 	p.cmd = &exec.Cmd{
 		Path:   p.path,
 		Args:   p.args,
@@ -55,12 +53,12 @@ func (p *Process) start() error {
 		Stderr: p.stderr,
 	}
 
-	if err := p.cmd.Start(); err != nil {
-		return err
-	}
-	p.pp.addProcess(p)
-
 	go func() {
+		if err := p.cmd.Start(); err != nil {
+			return
+		}
+
+		p.pp.addProcess(p)
 		defer p.pp.wg.Done()
 
 		err := p.cmd.Wait()
@@ -70,10 +68,8 @@ func (p *Process) start() error {
 			if !p.stopped && p.backoff != nil {
 				d, stop := p.backoff.Duration()
 				if stop {
-					//fmt.Println("no more backoffs")
 					return
 				}
-				//fmt.Printf("sleeping for %f seconds\n", float64(d)/float64(time.Second))
 
 				time.Sleep(d)
 				_ = p.start()

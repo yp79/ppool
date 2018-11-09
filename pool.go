@@ -76,7 +76,7 @@ func (pp *ProcessPool) WaitAll() {
 func (pp *ProcessPool) KillAll() {
 	pp.mu.Lock()
 	for _, p := range pp.processes {
-		p.kill()
+		p.Stop()
 	}
 	pp.mu.Unlock()
 }
