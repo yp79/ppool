@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// Process stores process related data.
 type Process struct {
 	path    string
 	args    []string
@@ -21,6 +22,7 @@ type Process struct {
 	stopped bool
 }
 
+// Pid returns pid of this process if started or -1 if it isn't running yet
 func (p *Process) Pid() int {
 	if p.cmd != nil && p.cmd.Process != nil {
 		return p.cmd.Process.Pid
@@ -28,6 +30,7 @@ func (p *Process) Pid() int {
 	return -1
 }
 
+// Stop sends kill signal to the process.
 func (p *Process) Stop() error {
 	p.stopped = true
 	return p.kill()
@@ -77,10 +80,12 @@ func (p *Process) start() error {
 	return nil
 }
 
+// StdoutOutput returns combined output of process' stdout
 func (p *Process) StdoutOutput() []byte {
 	return p.stdout.Bytes()
 }
 
+// StderrOutput returns combined output of process' stderr
 func (p *Process) StderrOutput() []byte {
 	return p.stderr.Bytes()
 }
