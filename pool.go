@@ -95,6 +95,11 @@ func (pp *ProcessPool) deleteProcess(pid int) {
 }
 
 func (p *Process) start() error {
+	if p.stopped {
+		return nil
+	}
+
+	fmt.Println("starting")
 	p.cmd = &exec.Cmd{
 		Path: p.path,
 		Args: p.args,
@@ -104,7 +109,6 @@ func (p *Process) start() error {
 	if err := p.cmd.Start(); err != nil {
 		return err
 	}
-
 	p.pp.addProcess(p)
 
 	go func() {
@@ -114,22 +118,28 @@ func (p *Process) start() error {
 		p.pp.deleteProcess(p.Pid())
 
 		if err != nil {
+			if p.stopped {
+				fmt.Println("stopped")
+			}
 			if !p.stopped && p.backoff != nil {
 				d, stop := p.backoff.Duration()
 				if stop {
 					fmt.Println("no more backoffs")
 					return
 				}
+				fmt.Printf("sleeping for %f seconds\n", float64(d)/float64(time.Second))
 
 				time.Sleep(d)
-				if err := p.start(); err != nil {
-					return
-				}
+				_ = p.start()
 			}
 		}
 	}()
 
 	return nil
+}
+
+func (p *Process) CombinedOutput() ([]byte, error) {
+	return p.cmd.CombinedOutput()
 }
 
 func (p *Process) Stop() error {

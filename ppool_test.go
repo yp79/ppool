@@ -1,6 +1,7 @@
 package ppool_test
 
 import (
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -36,7 +37,9 @@ func TestRun(t *testing.T) {
 		t.Error(err)
 	}
 
+	fmt.Println("sleep 400")
 	time.Sleep(400 * time.Millisecond)
+	fmt.Println("sleep 400 done")
 	proc.Stop()
 
 	pp.WaitAll()
@@ -46,5 +49,6 @@ func TestHelperProcess(t *testing.T) {
 	if os.Getenv("TEST_HELPER_PROCESS") != "1" {
 		return
 	}
+	fmt.Printf("%v\n", os.Args)
 	os.Exit(1)
 }
