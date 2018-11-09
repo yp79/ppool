@@ -2,7 +2,7 @@ package ppool
 
 import "time"
 
-type Backoff []int
+type Backoff []time.Duration
 
 // Duration returns time to wait before retrying and if to retry at all
 // -1 marks termination
@@ -21,5 +21,5 @@ func (b *Backoff) Duration() (time.Duration, bool) {
 		*b = (*b)[1:]
 	}
 
-	return time.Duration(d) * time.Millisecond, false
+	return d, false
 }

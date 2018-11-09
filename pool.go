@@ -20,6 +20,7 @@ type ProcessPool struct {
 	mu             sync.Mutex
 	processes      map[int]*Process
 	defaultBackoff Backoff
+	wg             sync.WaitGroup
 }
 
 type opt func(*ProcessPool)
@@ -42,21 +43,11 @@ func (pp *ProcessPool) Run(path string, args []string, env []string, backoff Bac
 		return nil, err
 	}
 
-	pp.mu.Lock()
-	pp.processes[proc.pid] = proc
-	pp.mu.Unlock()
-
 	return proc, nil
 }
 
-// Dumb implementation for tests
 func (pp *ProcessPool) WaitAll() {
-	for {
-		time.Sleep(50 * time.Millisecond)
-		if len(pp.processes) == 0 {
-			return
-		}
-	}
+	pp.wg.Wait()
 }
 
 func (p *Process) start(path string, args []string, env []string) error {
@@ -72,37 +63,36 @@ func (p *Process) start(path string, args []string, env []string) error {
 	}
 
 	p.pid = cmd.Process.Pid
+	p.pp.wg.Add(1)
 	p.pp.mu.Lock()
 	p.pp.processes[p.pid] = p
 	p.pp.mu.Unlock()
 
 	go func() {
 		log.Print("waiting\n")
+		defer p.pp.wg.Done()
+
 		err := cmd.Wait()
 		log.Print("process exited\n")
 
-		oldPid := p.pid
+		p.pp.mu.Lock()
+		delete(p.pp.processes, p.pid)
+		p.pp.mu.Unlock()
+
 		if err != nil {
 			fmt.Printf("process exited with error, restarting\n")
 			if !p.stopped && p.backoff != nil {
 				d, stop := p.backoff.Duration()
 				if stop {
-					fmt.Printf("no more backoffs")
-					p.pp.mu.Lock()
-					delete(p.pp.processes, oldPid)
-					p.pp.mu.Unlock()
+					fmt.Println("no more backoffs")
 					return
 				}
 
-				fmt.Printf("sleeping for %d seconds\n", d*1000/time.Second)
-				time.Sleep(d * 1000)
+				fmt.Printf("sleeping for %f seconds\n", float64(d)/float64(time.Second))
+				time.Sleep(d)
 				if err := p.start(path, args, env); err != nil {
 					return
 				}
-
-				p.pp.mu.Lock()
-				delete(p.pp.processes, oldPid)
-				p.pp.mu.Unlock()
 			}
 		}
 	}()
