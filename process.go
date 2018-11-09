@@ -59,12 +59,9 @@ func (p *Process) start() error {
 		}
 
 		p.pp.addProcess(p)
-		defer p.pp.wg.Done()
+		defer p.pp.deleteProcess(p.Pid())
 
-		err := p.cmd.Wait()
-		p.pp.deleteProcess(p.Pid())
-
-		if err != nil {
+		if err := p.cmd.Wait(); err != nil {
 			if !p.stopped && p.backoff != nil {
 				d, stop := p.backoff.Duration()
 				if stop {

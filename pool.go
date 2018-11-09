@@ -89,6 +89,7 @@ func (pp *ProcessPool) addProcess(p *Process) {
 }
 
 func (pp *ProcessPool) deleteProcess(pid int) {
+	pp.wg.Done()
 	pp.mu.Lock()
 	delete(pp.processes, pid)
 	pp.mu.Unlock()
