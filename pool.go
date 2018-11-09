@@ -1,36 +1,12 @@
 package ppool
 
 import (
-	"errors"
-	"fmt"
-	"os/exec"
+	"bytes"
+	"os"
+	"os/signal"
 	"sync"
-	"time"
+	"syscall"
 )
-
-type Process struct {
-	path    string
-	args    []string
-	env     []string
-	backoff *Backoff
-	pp      *ProcessPool
-	cmd     *exec.Cmd
-	stopped bool
-}
-
-func (p *Process) Pid() int {
-	if p.cmd != nil && p.cmd.Process != nil {
-		return p.cmd.Process.Pid
-	}
-	return -1
-}
-
-func (p *Process) kill() error {
-	if p.cmd != nil && p.cmd.Process != nil {
-		return p.cmd.Process.Kill()
-	}
-	return errors.New("no process")
-}
 
 type ProcessPool struct {
 	mu             sync.Mutex
@@ -41,12 +17,6 @@ type ProcessPool struct {
 
 type opt func(*ProcessPool)
 
-func WithDefaultBackoff(b Backoff) opt {
-	return func(pp *ProcessPool) {
-		pp.defaultBackoff = b
-	}
-}
-
 func New(opts ...opt) *ProcessPool {
 	p := &ProcessPool{
 		processes: make(map[int]*Process),
@@ -56,6 +26,24 @@ func New(opts ...opt) *ProcessPool {
 	}
 
 	return p
+}
+
+func WithDefaultBackoff(b Backoff) opt {
+	return func(pp *ProcessPool) {
+		pp.defaultBackoff = b
+	}
+}
+
+func WithSigTermRelay() opt {
+	return func(pp *ProcessPool) {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGTERM)
+
+		go func() {
+			_ = <-c
+			pp.KillAll()
+		}()
+	}
 }
 
 func (pp *ProcessPool) Run(path string, args []string, env []string, backoff Backoff) (*Process, error) {
@@ -69,6 +57,8 @@ func (pp *ProcessPool) Run(path string, args []string, env []string, backoff Bac
 		env:     env,
 		pp:      pp,
 		backoff: &backoff,
+		stdout:  &bytes.Buffer{},
+		stderr:  &bytes.Buffer{},
 	}
 	if err := proc.start(); err != nil {
 		return nil, err
@@ -79,6 +69,14 @@ func (pp *ProcessPool) Run(path string, args []string, env []string, backoff Bac
 
 func (pp *ProcessPool) WaitAll() {
 	pp.wg.Wait()
+}
+
+func (pp *ProcessPool) KillAll() {
+	pp.mu.Lock()
+	for _, p := range pp.processes {
+		p.kill()
+	}
+	pp.mu.Unlock()
 }
 
 func (pp *ProcessPool) addProcess(p *Process) {
@@ -92,58 +90,4 @@ func (pp *ProcessPool) deleteProcess(pid int) {
 	pp.mu.Lock()
 	delete(pp.processes, pid)
 	pp.mu.Unlock()
-}
-
-func (p *Process) start() error {
-	if p.stopped {
-		return nil
-	}
-
-	fmt.Println("starting")
-	p.cmd = &exec.Cmd{
-		Path: p.path,
-		Args: p.args,
-		Env:  p.env,
-	}
-
-	if err := p.cmd.Start(); err != nil {
-		return err
-	}
-	p.pp.addProcess(p)
-
-	go func() {
-		defer p.pp.wg.Done()
-
-		err := p.cmd.Wait()
-		p.pp.deleteProcess(p.Pid())
-
-		if err != nil {
-			if p.stopped {
-				fmt.Println("stopped")
-			}
-			if !p.stopped && p.backoff != nil {
-				d, stop := p.backoff.Duration()
-				if stop {
-					fmt.Println("no more backoffs")
-					return
-				}
-				fmt.Printf("sleeping for %f seconds\n", float64(d)/float64(time.Second))
-
-				time.Sleep(d)
-				_ = p.start()
-			}
-		}
-	}()
-
-	return nil
-}
-
-func (p *Process) CombinedOutput() ([]byte, error) {
-	return p.cmd.CombinedOutput()
-}
-
-func (p *Process) Stop() error {
-	p.stopped = true
-	p.pp.deleteProcess(p.Pid())
-	return p.kill()
 }
