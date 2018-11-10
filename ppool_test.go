@@ -44,7 +44,6 @@ func TestRun(t *testing.T) {
 		t.Error(err)
 	}
 
-	time.Sleep(50 * time.Millisecond)
 	pp.WaitAll()
 
 	output := string(proc1.StdoutOutput())
@@ -121,7 +120,6 @@ func TestSigTermRelay(t *testing.T) {
 		t.Error(err)
 	}
 
-	time.Sleep(50 * time.Millisecond)
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGTERM)
 	syscall.Kill(syscall.Getpid(), syscall.SIGTERM)

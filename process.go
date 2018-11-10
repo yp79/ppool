@@ -56,8 +56,11 @@ func (p *Process) start() error {
 		Stderr: p.stderr,
 	}
 
+	ready := make(chan error)
 	go func() {
-		if err := p.cmd.Start(); err != nil {
+		err := p.cmd.Start()
+		ready <- err
+		if err != nil {
 			return
 		}
 
@@ -77,7 +80,7 @@ func (p *Process) start() error {
 		}
 	}()
 
-	return nil
+	return <-ready
 }
 
 // StdoutOutput returns combined output of process' stdout
